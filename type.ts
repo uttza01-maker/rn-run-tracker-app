@@ -3,6 +3,6 @@ export type Run = {
   location: string;
   distance: number;
   time_of_day: string;
-  date: string;
+  run_date: string;
   image_url: string;
 };

@@ -58,17 +58,13 @@ export default function Addtmp() {
 
     // ⬆️ ขั้นตอนที่ 3.2: อัปโหลดรูปภาพไปยัง Supabase Storage
     const fileName = `run_${Date.now()}.jpg`; // สร้างชื่อไฟล์แบบ Dynamic ป้องกันชื่อซ้ำกัน
-    // แปลง base64Image ให้เป็น BinalyData เพื่อให้ Supabase รับได้ถูกต้อง
-    const byteCharacters = atob(base64Image);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
+
+    const imageResponse = await fetch(`data:image/jpeg;base64,${base64Image}`);
+    const imageBlob = await imageResponse.blob();
 
     const { error: uploadError } = await supabase.storage
       .from("run_bk") // ระบุชื่อ Bucket ที่สร้างไว้บนระบบ Cloud
-      .upload(fileName, byteArray, {
+      .upload(fileName, imageBlob, {
         contentType: "image/jpeg",
       });
 
@@ -79,8 +75,16 @@ export default function Addtmp() {
     }
 
     // 🌐 ขั้นตอนที่ 3.4: ดึง URL สาธารณะ (Public URL) ของรูปภาพที่อัปโหลดสำเร็จมาใช้งาน
-    let image_url = supabase.storage.from("run_bk").getPublicUrl(fileName)
-      .data.publicUrl;
+    const { data: publicUrlData } = supabase.storage
+      .from("run_bk")
+      .getPublicUrl(fileName);
+
+    if (!publicUrlData?.publicUrl) {
+      Alert.alert("เกิดข้อผิดพลาดในการดึง URL รูปภาพ");
+      return;
+    }
+
+    const image_url = publicUrlData.publicUrl;
 
     // 📥 ขั้นตอนที่ 3.5: บันทึกข้อมูลเท็กซ์ฟิลด์ทั้งหมดพร้อมลิงก์รูปภาพลง Supabase Database Table
     const { error: insertError } = await supabase.from("runs").insert({
@@ -108,72 +112,88 @@ export default function Addtmp() {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>เพิ่มสถานที่วิ่ง</Text>
+      </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
-        {/* Input: สถานที่วิ่ง */}
-        <Text style={styles.titleShow}>สถานที่วิ่ง</Text>
-        <TextInput
-          value={location}
-          onChangeText={setLocation}
-          placeholder="เช่น สวนลุมพินี"
-          style={styles.inputValue}
-        />
+        <View style={styles.card}>
+          {/* Input: สถานที่วิ่ง */}
+          <Text style={styles.titleShow}>สถานที่วิ่ง</Text>
+          <TextInput
+            value={location}
+            onChangeText={setLocation}
+            placeholder="เช่น สวนลุมพินี"
+            style={styles.inputValue}
+          />
 
-        {/* Input: ระยะทาง */}
-        <Text style={styles.titleShow}>ระยะทาง (กิโลเมตร)</Text>
-        <TextInput
-          value={distance}
-          onChangeText={setDistance}
-          placeholder="เช่น 5.2"
-          keyboardType="numeric" // แสดงแผงคีย์บอร์ดเฉพาะตัวเลขและจุดทศนิยม
-          style={styles.inputValue}
-        />
+          {/* Input: ระยะทาง */}
+          <Text style={styles.titleShow}>ระยะทาง (กิโลเมตร)</Text>
+          <TextInput
+            value={distance}
+            onChangeText={setDistance}
+            placeholder="เช่น 5.2"
+            keyboardType="numeric" // แสดงแผงคีย์บอร์ดเฉพาะตัวเลขและจุดทศนิยม
+            style={styles.inputValue}
+          />
 
-        {/* Picker: เลือกช่วงเวลาวิ่ง */}
-        <Text style={styles.titleShow}>ช่วงเวลา</Text>
-        <View style={{ flexDirection: "row", marginBottom: 20 }}>
-          <TouchableOpacity
-            style={[
-              styles.todBtn,
-              { backgroundColor: timeOfDay === "เช้า" ? "#1889da" : "#e6e6e6" },
-            ]}
-            onPress={() => setTimeOfDay("เช้า")}
-          >
-            <Text style={{ fontFamily: "Kanit_400Regular", color: "#4d4d4d" }}>
-              เช้า
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.todBtn,
-              { backgroundColor: timeOfDay === "เย็น" ? "#1889da" : "#e6e6e6" },
-            ]}
-            onPress={() => setTimeOfDay("เย็น")}
-          >
-            <Text style={{ fontFamily: "Kanit_400Regular", color: "#4d4d4d" }}>
-              เย็น
-            </Text>
+          {/* Picker: เลือกช่วงเวลาวิ่ง */}
+          <Text style={styles.titleShow}>ช่วงเวลา</Text>
+          <View style={{ flexDirection: "row", marginBottom: 20 }}>
+            <TouchableOpacity
+              style={[
+                styles.todBtn,
+                {
+                  backgroundColor: timeOfDay === "เช้า" ? "#1889da" : "#e6e6e6",
+                },
+              ]}
+              onPress={() => setTimeOfDay("เช้า")}
+            >
+              <Text
+                style={{ fontFamily: "Kanit_400Regular", color: "#4d4d4d" }}
+              >
+                เช้า
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.todBtn,
+                {
+                  backgroundColor: timeOfDay === "เย็น" ? "#1889da" : "#e6e6e6",
+                },
+              ]}
+              onPress={() => setTimeOfDay("เย็น")}
+            >
+              <Text
+                style={{ fontFamily: "Kanit_400Regular", color: "#4d4d4d" }}
+              >
+                เย็น
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* กล่องเปิดกล้องเพื่อเลือกถ่ายภาพ */}
+          <Text style={styles.titleShow}>รูปภาพสถานที่</Text>
+          <TouchableOpacity style={styles.takePhotoBtn} onPress={takePhoto}>
+            {imageUri ? (
+              <Image
+                source={{ uri: imageUri }}
+                style={{ width: "100%", height: 200 }}
+              />
+            ) : (
+              <View style={{ alignItems: "center" }}>
+                <Ionicons name="camera-outline" size={30} color="#b6b6b6" />
+                <Text
+                  style={{ fontFamily: "Kanit_400Regular", color: "#b6b6b6" }}
+                >
+                  กดเพื่อถ่ายภาพ
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
-
-        {/* กล่องเปิดกล้องเพื่อเลือกถ่ายภาพ */}
-        <Text style={styles.titleShow}>รูปภาพสถานที่</Text>
-        <TouchableOpacity style={styles.takePhotoBtn} onPress={takePhoto}>
-          {imageUri ? (
-            <Image
-              source={{ uri: imageUri }}
-              style={{ width: "100%", height: 200 }}
-            />
-          ) : (
-            <View style={{ alignItems: "center" }}>
-              <Ionicons name="camera-outline" size={30} color="#b6b6b6" />
-              <Text
-                style={{ fontFamily: "Kanit_400Regular", color: "#b6b6b6" }}
-              >
-                กดเพื่อถ่ายภาพ
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
 
         {/* ปุ่ม Submit บันทึกข้อมูลทั้งหมด */}
         <TouchableOpacity style={styles.saveBtn} onPress={uploadData}>
@@ -221,5 +241,32 @@ const styles = StyleSheet.create({
   titleShow: {
     fontFamily: "Kanit_700Bold",
     marginBottom: 10,
+  },
+  header: {
+    backgroundColor: "#1889da",
+    paddingTop: 40,
+    paddingBottom: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    color: "#fff",
+    fontFamily: "Kanit_700Bold",
+    fontSize: 18,
+  },
+  backBtn: {
+    position: "absolute",
+    left: 16,
+    top: 44,
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
 });

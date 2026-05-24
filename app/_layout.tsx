@@ -19,6 +19,7 @@ export default function RootLayout() {
         await SplashScreen.hideAsync();
       }
     }
+    prepare();
   }, [fontsLoaded]);
   return (
     <Stack
